@@ -179,6 +179,16 @@ export class SimEngine {
     });
     this.app = app;
     app.setCanvasFillMode(pc.FILLMODE_NONE);
+    // Higher profiles render at a denser device-pixel ratio and raise the streamed
+    // splat LOD budget where the capture includes multiresolution data.
+    const quality = config.environment.splatQuality ?? "balanced";
+    const qualitySettings = {
+      balanced: { pixelRatio: 1, splatBudget: 1_000_000 },
+      high: { pixelRatio: 1.5, splatBudget: 2_000_000 },
+      maximum: { pixelRatio: 2, splatBudget: 0 },
+    }[quality];
+    app.graphicsDevice.maxPixelRatio = qualitySettings.pixelRatio;
+    app.scene.gsplat.splatBudget = qualitySettings.splatBudget;
     app.setCanvasResolution(pc.RESOLUTION_AUTO);
     this.resize();
     app.start();

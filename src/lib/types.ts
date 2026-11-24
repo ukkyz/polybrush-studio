@@ -26,6 +26,7 @@ export type FloorPlan = {
 
 export type EnvironmentKind = "splat" | "panorama" | "mesh";
 export type EnvironmentSource = "generated" | "upload";
+export type SplatQuality = "balanced" | "high" | "maximum";
 export type ScenePreset = "loft" | "gallery" | "atrium";
 
 export type EnvironmentConfig = {
@@ -35,6 +36,7 @@ export type EnvironmentConfig = {
   url: string | null;
   filename: string | null;
   splatScale: number;
+  splatQuality: SplatQuality;
   splatYaw: number;
   splatPitch: number;
   splatRoll: number;
@@ -167,6 +169,7 @@ export function defaultEnvironment(): EnvironmentConfig {
     url: null,
     filename: null,
     splatScale: 1,
+    splatQuality: "balanced",
     splatYaw: 0,
     splatPitch: 0,
     splatRoll: 0,
