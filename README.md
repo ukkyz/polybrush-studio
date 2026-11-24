@@ -34,6 +34,12 @@ DATABASE_URL=polybrush.sqlite   # relative names live in .data/; absolute paths 
 
 ---
 
+## Repository review and enhancement workflow
+
+See [the prioritized repository review and agentic enhancement workflow](docs/repository-review-and-agent-workflow.md) for findings, verification limits, and a repeatable process for future changes.
+
+---
+
 ## Feature map
 
 ### 1. Capture and environment
