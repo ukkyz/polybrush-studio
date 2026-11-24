@@ -21,6 +21,7 @@ import {
   type GoalConfig,
   type Project,
   type ProjectConfig,
+  type SplatQuality,
 } from "@/lib/types";
 
 const SimCanvas = dynamic(() => import("@/components/SimCanvas"), {
@@ -373,6 +374,29 @@ export default function StudioClient({ project }: { project: Project }) {
                   </div>
                 )}
 
+                <div className="panel-soft p-3">
+                  <div className="label">render detail</div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-white/40">
+                    Higher settings render at more pixels and request finer capture LODs where available. This can use more GPU memory and reduce frame rate.
+                  </p>
+                  <div className="mt-2 grid grid-cols-3 gap-1.5">
+                    {([
+                      ["balanced", "Balanced"],
+                      ["high", "High"],
+                      ["maximum", "Maximum"],
+                    ] as [SplatQuality, string][]).map(([quality, label]) => (
+                      <button
+                        key={quality}
+                        type="button"
+                        aria-pressed={(config.environment.splatQuality ?? "balanced") === quality}
+                        onClick={() => updateEnv({ splatQuality: quality })}
+                        className={`rounded-lg border px-2 py-2 text-[11px] transition ${(config.environment.splatQuality ?? "balanced") === quality ? "border-[#c9f45b]/60 bg-[#c9f45b]/10 text-[#e6ffb0]" : "border-white/10 text-white/50 hover:border-white/25"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <SliderRow
                   label="splat scale"
                   value={config.environment.splatScale}
