@@ -392,6 +392,24 @@ export default function StudioClient({ project }: { project: Project }) {
                   format={(v) => `${v}°`}
                 />
                 <SliderRow
+                  label="splat pitch"
+                  value={config.environment.splatPitch ?? 0}
+                  min={-180}
+                  max={180}
+                  step={5}
+                  onChange={(value) => updateEnv({ splatPitch: value })}
+                  format={(v) => `${v}°`}
+                />
+                <SliderRow
+                  label="splat roll"
+                  value={config.environment.splatRoll ?? 0}
+                  min={-180}
+                  max={180}
+                  step={5}
+                  onChange={(value) => updateEnv({ splatRoll: value })}
+                  format={(v) => `${v}°`}
+                />
+                <SliderRow
                   label="splat height"
                   value={config.environment.splatY}
                   min={-3}

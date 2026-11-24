@@ -537,7 +537,9 @@ export class SimEngine {
       entity.addComponent("gsplat", { asset });
       entity.setLocalScale(environment.splatScale, environment.splatScale, environment.splatScale);
       entity.setLocalPosition(0, environment.splatY, 0);
-      entity.setLocalEulerAngles(0, environment.splatYaw, 0);
+      // Uploaded captures may use a different up-axis convention. Keep all three
+      // axes adjustable so upside-down and tilted scans can be corrected in Studio.
+      entity.setLocalEulerAngles(environment.splatPitch ?? 0, environment.splatYaw ?? 0, environment.splatRoll ?? 0);
       this.envRoot?.addChild(entity);
       if (!environment.showShell && this.shellGroup) this.shellGroup.enabled = false;
       this.setStatus("splat", "Gaussian splat environment ready");
