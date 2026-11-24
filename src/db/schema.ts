@@ -1,26 +1,29 @@
-import { boolean, integer, jsonb, pgTable, real, serial, text, timestamp } from "drizzle-orm/pg-core";
-import type { AvatarConfig, EnvironmentConfig, FloorPlan, GoalConfig } from "@/lib/types";
+import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import type { AvatarConfig, EnvironmentConfig, FloorPlan, GoalConfig } from "../lib/types";
 
-export const projects = pgTable("projects", {
-  id: serial("id").primaryKey(),
+export const projects = sqliteTable("projects", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
-  environment: jsonb("environment").$type<EnvironmentConfig>().notNull(),
-  floorplan: jsonb("floorplan").$type<FloorPlan>().notNull(),
-  avatar: jsonb("avatar").$type<AvatarConfig>().notNull(),
-  goal: jsonb("goal").$type<GoalConfig>().notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  environment: text("environment", { mode: "json" }).$type<EnvironmentConfig>().notNull(),
+  floorplan: text("floorplan", { mode: "json" }).$type<FloorPlan>().notNull(),
+  avatar: text("avatar", { mode: "json" }).$type<AvatarConfig>().notNull(),
+  goal: text("goal", { mode: "json" }).$type<GoalConfig>().notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdateFn(() => new Date()),
 });
 
-export const sessions = pgTable("sessions", {
-  id: serial("id").primaryKey(),
+export const sessions = sqliteTable("sessions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   projectId: integer("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
-  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
-  endedAt: timestamp("ended_at", { withTimezone: true }),
+  startedAt: integer("started_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  endedAt: integer("ended_at", { mode: "timestamp" }),
   durationSec: real("duration_sec").notNull().default(0),
   distanceM: real("distance_m").notNull().default(0),
   orbsCollected: integer("orbs_collected").notNull().default(0),
@@ -28,12 +31,12 @@ export const sessions = pgTable("sessions", {
   collisions: integer("collisions").notNull().default(0),
   emotesUsed: integer("emotes_used").notNull().default(0),
   cameraChanges: integer("camera_changes").notNull().default(0),
-  completed: boolean("completed").notNull().default(false),
+  completed: integer("completed", { mode: "boolean" }).notNull().default(false),
   endReason: text("end_reason"),
 });
 
-export const events = pgTable("events", {
-  id: serial("id").primaryKey(),
+export const events = sqliteTable("events", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   sessionId: integer("session_id")
     .notNull()
     .references(() => sessions.id, { onDelete: "cascade" }),
@@ -41,19 +44,22 @@ export const events = pgTable("events", {
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
   type: text("type").notNull(),
-  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  payload: text("payload", { mode: "json" })
+    .$type<Record<string, unknown>>()
+    .notNull()
+    .$defaultFn(() => ({})),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-export const feedback = pgTable("feedback", {
-  id: serial("id").primaryKey(),
+export const feedback = sqliteTable("feedback", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   projectId: integer("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
   sessionId: integer("session_id").references(() => sessions.id, { onDelete: "set null" }),
   rating: integer("rating").notNull(),
-  tags: jsonb("tags").$type<string[]>().notNull().default([]),
+  tags: text("tags", { mode: "json" }).$type<string[]>().notNull().$defaultFn(() => []),
   comment: text("comment").notNull().default(""),
   role: text("role").notNull().default("tester"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });

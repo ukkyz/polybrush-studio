@@ -325,7 +325,7 @@ export default async function InsightsPage({ params }: { params: Promise<{ id: s
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3">
           <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/30">
-            prototype telemetry · playcanvas gsplat · postgres
+            prototype telemetry · playcanvas gsplat · sqlite
           </span>
           <div className="flex gap-2">
             <Link href={`/studio/${project.id}`} className="text-[11px] text-white/50 hover:text-white">

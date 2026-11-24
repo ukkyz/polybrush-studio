@@ -255,7 +255,7 @@ export default async function Home() {
                 {[
                   "Walkable polygon + prop collision derived from the floorplan editor",
                   "Third-person / first-person camera, emote poses and scan interactions",
-                  "Per-session telemetry posted to PostgreSQL via Drizzle",
+                  "Per-session telemetry posted to SQLite via Drizzle",
                   "Feedback capture and validation verdicts on every prototype",
                 ].map((item) => (
                   <li key={item} className="flex gap-2">
@@ -278,7 +278,7 @@ export default async function Home() {
               </div>
               <div className="panel-soft p-4">
                 <div className="label">data</div>
-                <div className="mt-2 font-mono text-[12px] text-white/70">postgres + drizzle</div>
+                <div className="mt-2 font-mono text-[12px] text-white/70">sqlite + drizzle</div>
                 <div className="mt-1 text-[11px] text-white/35">projects · sessions · events · feedback</div>
               </div>
               <div className="panel-soft p-4">
@@ -294,7 +294,7 @@ export default async function Home() {
       <footer className="border-t border-white/8 py-6">
         <div className="mx-auto flex w-full max-w-[1400px] flex-wrap items-center justify-between gap-3 px-5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">
           <span>Splatwalk · rapid prototype · not a production build</span>
-          <span>PlayCanvas engine · Next.js · PostgreSQL</span>
+          <span>PlayCanvas engine · Next.js · SQLite</span>
         </div>
       </footer>
     </div>
