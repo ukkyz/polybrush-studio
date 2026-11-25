@@ -193,6 +193,27 @@ export default function StudioClient({ project }: { project: Project }) {
     }
   };
 
+  const uploadSplatObject = async (files: File[]) => {
+    setUploading("environment");
+    setStatusDetail("");
+    try {
+      const form = new FormData();
+      files.forEach((file) => form.append("files", file, file.webkitRelativePath || file.name));
+      const response = await fetch("/api/upload", { method: "POST", body: form });
+      const data = (await response.json()) as { url?: string; filename?: string; format?: string; error?: string; files?: string[] };
+      if (!response.ok || !data.url) {
+        const reason = data.error === "splat_object_missing_files" ? `Missing: ${data.files?.join(", ")}` : data.error;
+        throw new Error(reason ?? "Splat object upload failed");
+      }
+      updateEnv({ kind: "splat", source: "upload", url: data.url, filename: data.filename ?? "meta.json" });
+      setStatusDetail(`WebP splat object uploaded (${files.length} files · ${(files.reduce((sum, file) => sum + file.size, 0) / (1024 * 1024)).toFixed(1)} MB)`);
+    } catch (error) {
+      setStatusDetail(error instanceof Error ? error.message : "Splat object upload failed");
+    } finally {
+      setUploading(null);
+    }
+  };
+
   const onSimEvent = (event: SimEventMessage) => {
     setTelemetry((prev) => [`${new Date().toLocaleTimeString([], { hour12: false })} · ${event.type}`, ...prev].slice(0, 6));
   };
@@ -341,6 +362,24 @@ export default function StudioClient({ project }: { project: Project }) {
                           }}
                         />
                       </label>
+                      <label className="mt-2 flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2 text-[11px] text-white/45 transition hover:border-[#c9f45b]/35 hover:text-white/70">
+                        <span>{uploading === "environment" ? "Uploading splat object…" : "Choose transformed WebP object folder"}</span>
+                        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#c9f45b]/75">meta.json + WEBP</span>
+                        <input
+                          type="file"
+                          multiple
+                          className="hidden"
+                          ref={(node) => node?.setAttribute("webkitdirectory", "")}
+                          onChange={(event) => {
+                            const files = Array.from(event.currentTarget.files ?? []);
+                            if (files.length) void uploadSplatObject(files);
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                      </label>
+                      <p className="mt-1 text-[10px] leading-relaxed text-white/30">
+                        Select the exported folder containing meta.json and its referenced .webp files.
+                      </p>
                       {config.environment.source === "upload" && (
                         <button
                           type="button"
@@ -402,9 +441,9 @@ export default function StudioClient({ project }: { project: Project }) {
                 <SliderRow
                   label="splat scale"
                   value={config.environment.splatScale}
-                  min={0.2}
-                  max={3}
-                  step={0.05}
+                  min={0.01}
+                  max={10}
+                  step={0.01}
                   onChange={(value) => updateEnv({ splatScale: value })}
                   format={(v) => `${v.toFixed(2)}×`}
                 />
@@ -413,7 +452,7 @@ export default function StudioClient({ project }: { project: Project }) {
                   value={config.environment.splatYaw}
                   min={-180}
                   max={180}
-                  step={5}
+                  step={1}
                   onChange={(value) => updateEnv({ splatYaw: value })}
                   format={(v) => `${v}°`}
                 />
@@ -422,7 +461,7 @@ export default function StudioClient({ project }: { project: Project }) {
                   value={config.environment.splatPitch ?? 0}
                   min={-180}
                   max={180}
-                  step={5}
+                  step={1}
                   onChange={(value) => updateEnv({ splatPitch: value })}
                   format={(v) => `${v}°`}
                 />
@@ -431,17 +470,35 @@ export default function StudioClient({ project }: { project: Project }) {
                   value={config.environment.splatRoll ?? 0}
                   min={-180}
                   max={180}
-                  step={5}
+                  step={1}
                   onChange={(value) => updateEnv({ splatRoll: value })}
                   format={(v) => `${v}°`}
                 />
                 <SliderRow
-                  label="splat height"
-                  value={config.environment.splatY}
-                  min={-3}
-                  max={3}
+                  label="splat position X"
+                  value={config.environment.splatX ?? 0}
+                  min={-10}
+                  max={10}
+                  step={0.1}
+                  onChange={(value) => updateEnv({ splatX: value })}
+                  format={(v) => `${v.toFixed(1)} m`}
+                />
+                <SliderRow
+                  label="splat position Y"
+                  value={config.environment.splatY ?? 0}
+                  min={-10}
+                  max={10}
                   step={0.1}
                   onChange={(value) => updateEnv({ splatY: value })}
+                  format={(v) => `${v.toFixed(1)} m`}
+                />
+                <SliderRow
+                  label="splat position Z"
+                  value={config.environment.splatZ ?? 0}
+                  min={-10}
+                  max={10}
+                  step={0.1}
+                  onChange={(value) => updateEnv({ splatZ: value })}
                   format={(v) => `${v.toFixed(1)} m`}
                 />
                 <SliderRow
@@ -764,6 +821,10 @@ export default function StudioClient({ project }: { project: Project }) {
                   pitch={previewConfig.environment.splatPitch ?? 0}
                   yaw={previewConfig.environment.splatYaw ?? 0}
                   roll={previewConfig.environment.splatRoll ?? 0}
+                  x={previewConfig.environment.splatX ?? 0}
+                  y={previewConfig.environment.splatY ?? 0}
+                  z={previewConfig.environment.splatZ ?? 0}
+                  scale={previewConfig.environment.splatScale}
                 />
               ) : (
                 <SimCanvas

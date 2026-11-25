@@ -37,10 +37,12 @@ export type EnvironmentConfig = {
   filename: string | null;
   splatScale: number;
   splatQuality: SplatQuality;
+  splatX: number;
+  splatY: number;
+  splatZ: number;
   splatYaw: number;
   splatPitch: number;
   splatRoll: number;
-  splatY: number;
   tint: string;
   ambient: number;
   fog: boolean;
@@ -170,10 +172,12 @@ export function defaultEnvironment(): EnvironmentConfig {
     filename: null,
     splatScale: 1,
     splatQuality: "maximum",
+    splatX: 0,
+    splatY: 0,
+    splatZ: 0,
     splatYaw: 0,
     splatPitch: 0,
     splatRoll: 0,
-    splatY: 0,
     tint: "#c9f45b",
     ambient: 0.65,
     fog: true,

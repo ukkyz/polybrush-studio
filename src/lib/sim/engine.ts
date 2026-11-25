@@ -19,6 +19,7 @@ export type HudState = {
   totalOrbs: number;
   pose: PoseId;
   camera: "third" | "first";
+  freeCamera: boolean;
   completed: boolean;
   fps: number;
   x: number;
@@ -123,7 +124,13 @@ export class SimEngine {
   private updateHandle: ((dt: number) => void) | null = null;
 
   private keys = new Set<string>();
-  private pointer = { down: false, x: 0, y: 0 };
+  private pointer: { down: boolean; x: number; y: number; mode: "orbit" | "pan"; id: number | null } = {
+    down: false,
+    x: 0,
+    y: 0,
+    mode: "orbit",
+    id: null,
+  };
   private listeners: { target: EventTarget; type: string; fn: EventListener }[] = [];
 
   // player
@@ -135,6 +142,17 @@ export class SimEngine {
   private camYaw = 0;
   private camPitch = 18;
   private cameraMode: "third" | "first" = "third";
+  private freeCameraMode = false;
+  private freeCameraYaw = 0;
+  private freeCameraPitch = 18;
+  private freeCameraTarget = new pc.Vec3(0, 1, 0);
+  private freeCameraVelocity = new pc.Vec3();
+  private freeCameraDesired = new pc.Vec3();
+  private freeCameraRight = new pc.Vec3();
+  private freeCameraForward = new pc.Vec3();
+  private freeCameraUp = new pc.Vec3();
+  private cameraZoom = 1;
+  private freeCameraDistance = 5;
   private distance = 0;
   private collisions = 0;
   private emotesUsed = 0;
@@ -574,7 +592,7 @@ export class SimEngine {
       const entity = new pc.Entity("splat-environment");
       entity.addComponent("gsplat", { asset });
       entity.setLocalScale(environment.splatScale, environment.splatScale, environment.splatScale);
-      entity.setLocalPosition(0, environment.splatY, 0);
+      entity.setLocalPosition(environment.splatX ?? 0, environment.splatY ?? 0, environment.splatZ ?? 0);
       // Match SuperSplat's format-aware up-axis correction for uploaded captures.
       // Most formats (including SOG/PLY) use -Y up and need a 180° Z rotation;
       // SPZ is already +Y up, while LCC2 uses +Z up. Studio rotations are offsets.
@@ -925,8 +943,9 @@ export class SimEngine {
       this.keys.add(key);
       if (key === "shift") this.keys.add("shift");
       if (key === "c") this.toggleCamera();
-      if (key === "r") this.resetPlayer();
-      if (key === "e") this.scan();
+      if (key === "v") this.toggleFreeCamera();
+      if (key === "r" && !this.freeCameraMode) this.resetPlayer();
+      if (key === "e" && !this.freeCameraMode) this.scan();
       const poseKeys: Record<string, PoseId> = { "1": "idle", "2": "wave", "3": "sit", "4": "dance", "5": "point" };
       if (poseKeys[key]) this.setPose(poseKeys[key]);
     }) as EventListener);
@@ -940,27 +959,112 @@ export class SimEngine {
       this.pointer.down = true;
       this.pointer.x = event.clientX;
       this.pointer.y = event.clientY;
+      this.pointer.mode = this.freeCameraMode && event.button === 2 ? "pan" : "orbit";
+      this.pointer.id = event.pointerId;
       canvas.setPointerCapture?.(event.pointerId);
     }) as EventListener);
     this.listen(canvas, "pointermove", ((event: PointerEvent) => {
-      if (!this.pointer.down) return;
+      if (!this.pointer.down || this.pointer.id !== event.pointerId) return;
       const dx = event.clientX - this.pointer.x;
       const dy = event.clientY - this.pointer.y;
       this.pointer.x = event.clientX;
       this.pointer.y = event.clientY;
-      this.camYaw -= dx * 0.006;
-      this.camPitch = Math.min(70, Math.max(-20, this.camPitch + dy * 0.22));
+      if (this.freeCameraMode && this.pointer.mode === "pan") {
+        this.panFreeCamera(dx, dy);
+      } else if (this.freeCameraMode) {
+        this.freeCameraYaw -= dx * 0.3;
+        this.freeCameraPitch = Math.max(-89, Math.min(89, this.freeCameraPitch + dy * 0.3));
+      } else {
+        this.camYaw -= dx * 0.006;
+        this.camPitch = Math.min(70, Math.max(-20, this.camPitch + dy * 0.22));
+      }
     }) as EventListener);
-    this.listen(canvas, "pointerup", (() => {
+    const stopPointer = ((event: PointerEvent) => {
+      if (this.pointer.id !== event.pointerId) return;
       this.pointer.down = false;
-    }) as EventListener);
-    this.listen(canvas, "pointerleave", (() => {
-      this.pointer.down = false;
-    }) as EventListener);
+      this.pointer.id = null;
+    }) as EventListener;
+    this.listen(canvas, "pointerup", stopPointer);
+    this.listen(canvas, "pointercancel", stopPointer);
+    this.listen(canvas, "lostpointercapture", stopPointer);
+    this.listen(canvas, "contextmenu", ((event: Event) => event.preventDefault()) as EventListener);
     this.listen(canvas, "wheel", ((event: WheelEvent) => {
       event.preventDefault();
-      this.camPitch = Math.min(70, Math.max(-10, this.camPitch + event.deltaY * 0.02));
+      if (this.freeCameraMode) {
+        if (event.shiftKey) this.panFreeCamera(event.deltaX, event.deltaY);
+        else if (event.ctrlKey) {
+          this.freeCameraYaw -= event.deltaX * 0.15;
+          this.freeCameraPitch = Math.max(-89, Math.min(89, this.freeCameraPitch + event.deltaY * 0.15));
+        } else {
+          this.freeCameraDistance = Math.max(0.08, Math.min(100, this.freeCameraDistance * Math.exp(event.deltaY * 0.001)));
+        }
+      } else if (this.cameraMode === "first") {
+        const camera = this.cameraEntity?.camera;
+        if (camera) camera.fov = Math.max(25, Math.min(100, camera.fov + event.deltaY * 0.03));
+      } else {
+        this.cameraZoom = Math.max(0.55, Math.min(3.5, this.cameraZoom * Math.exp(event.deltaY * 0.001)));
+      }
     }) as EventListener);
+  }
+
+  private moveFreeCamera(dt: number): void {
+    const yaw = rad(this.freeCameraYaw);
+    const pitch = rad(this.freeCameraPitch);
+    const cosPitch = Math.cos(pitch);
+    this.freeCameraForward.set(-Math.sin(yaw) * cosPitch, -Math.sin(pitch), -Math.cos(yaw) * cosPitch).normalize();
+    this.freeCameraRight.set(Math.cos(yaw), 0, -Math.sin(yaw)).normalize();
+    this.freeCameraUp.cross(this.freeCameraRight, this.freeCameraForward).normalize();
+
+    const strafe = Number(this.keys.has("d") || this.keys.has("arrowright")) - Number(this.keys.has("a") || this.keys.has("arrowleft"));
+    const lift = Number(this.keys.has("e")) - Number(this.keys.has("q"));
+    const advance = Number(this.keys.has("w") || this.keys.has("arrowup")) - Number(this.keys.has("s") || this.keys.has("arrowdown"));
+    this.freeCameraDesired.set(0, 0, 0);
+    if (strafe || lift || advance) {
+      this.freeCameraDesired
+        .addScaled(this.freeCameraRight, strafe)
+        .addScaled(this.freeCameraUp, lift)
+        .addScaled(this.freeCameraForward, advance);
+      if (this.freeCameraDesired.lengthSq() > 0) {
+        const fast = this.keys.has("shift");
+        const slow = this.keys.has("control");
+        this.freeCameraDesired.normalize().mulScalar(4 * (fast ? 4 : slow ? 0.25 : 1));
+      }
+    }
+    const accel = this.freeCameraDesired.lengthSq() > this.freeCameraVelocity.lengthSq() ? 0.992 : 0.993;
+    this.freeCameraVelocity.lerp(this.freeCameraVelocity, this.freeCameraDesired, 1 - Math.pow(accel, dt * 1000));
+    if (this.freeCameraDesired.lengthSq() === 0 && this.freeCameraVelocity.lengthSq() < 1e-4) this.freeCameraVelocity.set(0, 0, 0);
+    this.freeCameraTarget.addScaled(this.freeCameraVelocity, dt);
+  }
+
+  private panFreeCamera(dx: number, dy: number): void {
+    const yaw = rad(this.freeCameraYaw);
+    const pitch = rad(this.freeCameraPitch);
+    const cosPitch = Math.cos(pitch);
+    this.freeCameraForward.set(-Math.sin(yaw) * cosPitch, -Math.sin(pitch), -Math.cos(yaw) * cosPitch).normalize();
+    this.freeCameraRight.set(Math.cos(yaw), 0, -Math.sin(yaw)).normalize();
+    this.freeCameraUp.cross(this.freeCameraRight, this.freeCameraForward).normalize();
+    const height = Math.max(1, this.options.canvas.clientHeight);
+    const fov = this.cameraEntity?.camera?.fov ?? 75;
+    const worldPerPixel = (2 * this.freeCameraDistance * Math.tan(rad(fov) / 2)) / height;
+    this.freeCameraTarget.addScaled(this.freeCameraRight, -dx * worldPerPixel);
+    this.freeCameraTarget.addScaled(this.freeCameraUp, dy * worldPerPixel);
+  }
+
+  toggleFreeCamera(): void {
+    this.freeCameraMode = !this.freeCameraMode;
+    if (this.freeCameraMode) {
+      this.freeCameraTarget.set(this.pos.x, this.y + 1.25, this.pos.z);
+      this.freeCameraYaw = this.camYaw;
+      this.freeCameraPitch = this.camPitch;
+      this.freeCameraDistance = Math.max(0.5, this.cameraZoom * 4.1);
+      this.freeCameraVelocity.set(0, 0, 0);
+    } else {
+      this.cameraZoom = Math.max(0.55, Math.min(3.5, this.freeCameraDistance / 4.1));
+      this.camYaw = this.freeCameraYaw;
+      this.camPitch = this.freeCameraPitch;
+      this.freeCameraVelocity.set(0, 0, 0);
+    }
+    this.emitHud(true);
   }
 
   private placeCamera(dt: number): void {
@@ -979,6 +1083,20 @@ export class SimEngine {
       return;
     }
 
+    if (this.freeCameraMode) {
+      const yaw = rad(this.freeCameraYaw);
+      const pitch = rad(this.freeCameraPitch);
+      const horizontal = Math.cos(pitch) * this.freeCameraDistance;
+      const position = new pc.Vec3(
+        this.freeCameraTarget.x + Math.sin(yaw) * horizontal,
+        this.freeCameraTarget.y + Math.sin(pitch) * this.freeCameraDistance,
+        this.freeCameraTarget.z + Math.cos(yaw) * horizontal,
+      );
+      this.cameraEntity.setPosition(position);
+      this.cameraEntity.lookAt(this.freeCameraTarget);
+      return;
+    }
+
     const eyeHeight = 1.62 * config.avatar.scale;
     if (this.cameraMode === "first") {
       const eye = new pc.Vec3(this.pos.x, this.y + eyeHeight, this.pos.z);
@@ -990,7 +1108,7 @@ export class SimEngine {
     } else {
       if (this.avatarVisual && !this.options.config.avatar.modelUrl) this.avatarVisual.enabled = true;
       if (this.avatarModel) this.avatarModel.enabled = true;
-      const dist = 4.1;
+      const dist = 4.1 * this.cameraZoom;
       const pitch = rad(this.camPitch);
       const offset = new pc.Vec3(Math.sin(this.camYaw) * Math.cos(pitch), Math.sin(pitch) + 0.32, Math.cos(this.camYaw) * Math.cos(pitch));
       const target = new pc.Vec3(this.pos.x, this.y + 1.25 * config.avatar.scale, this.pos.z);
@@ -1124,8 +1242,8 @@ export class SimEngine {
     let planarSpeed = 0;
     if (!paused) {
       if (mode === "play") {
-        const result = this.movePlayer(dt);
-        planarSpeed = result.planarSpeed;
+        if (this.freeCameraMode) this.moveFreeCamera(dt);
+        else planarSpeed = this.movePlayer(dt).planarSpeed;
         if (!this.completed && this.elapsed >= config.goal.timeLimitSec && !this.timedOut) {
           this.timedOut = true;
           this.emit({ type: "timeout", payload: { durationSec: Math.round(this.elapsed) } });
@@ -1164,6 +1282,7 @@ export class SimEngine {
       totalOrbs: this.options.config.floorplan.orbs.length,
       pose: this.pose,
       camera: this.cameraMode,
+      freeCamera: this.freeCameraMode,
       completed: this.completed,
       fps: Math.round(this.fps),
       x: this.pos.x,

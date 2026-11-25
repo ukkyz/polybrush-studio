@@ -8,20 +8,24 @@ type Props = {
   pitch: number;
   yaw: number;
   roll: number;
+  x: number;
+  y: number;
+  z: number;
+  scale: number;
 };
 
 /** High-fidelity capture inspection using PlayCanvas's official SuperSplat viewer. */
-export default function SuperSplatPreview({ url, filename, pitch, yaw, roll }: Props) {
+export default function SuperSplatPreview({ url, filename, pitch, yaw, roll, x, y, z, scale }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewerRef = useRef<Awaited<ReturnType<typeof import("@playcanvas/supersplat-viewer/viewer").createViewer>> | null>(null);
   const [status, setStatus] = useState("Starting SuperSplat viewer…");
   const [error, setError] = useState("");
   const [viewerReady, setViewerReady] = useState(false);
-  const rotationRef = useRef({ pitch, yaw, roll });
+  const transformRef = useRef({ pitch, yaw, roll, x, y, z, scale });
 
   useEffect(() => {
-    rotationRef.current = { pitch, yaw, roll };
-  }, [pitch, yaw, roll]);
+    transformRef.current = { pitch, yaw, roll, x, y, z, scale };
+  }, [pitch, yaw, roll, x, y, z, scale]);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,12 +56,14 @@ export default function SuperSplatPreview({ url, filename, pitch, yaw, roll }: P
           const entity = viewer.app.root.findByName("gsplat");
           if (!entity) return;
           const ext = filename.toLowerCase().split(".").pop();
-          const rotation = rotationRef.current;
+          const transform = transformRef.current;
           // Match SuperSplat's format-aware up-axis correction, then layer Studio's
           // editable Euler adjustments on top of that canonical orientation.
           const basePitch = ext === "lcc2" ? 270 : 0;
           const baseRoll = ext === "spz" ? 0 : 180;
-          entity.setLocalEulerAngles(basePitch + rotation.pitch, rotation.yaw, baseRoll + rotation.roll);
+          entity.setLocalEulerAngles(basePitch + transform.pitch, transform.yaw, baseRoll + transform.roll);
+          entity.setLocalPosition(transform.x, transform.y, transform.z);
+          entity.setLocalScale(transform.scale, transform.scale, transform.scale);
           viewer.state.quality = viewer.state.qualityAvailable.includes("max")
             ? "max"
             : viewer.state.qualityAvailable.at(-1) ?? "default";
@@ -95,7 +101,9 @@ export default function SuperSplatPreview({ url, filename, pitch, yaw, roll }: P
     if (!entity) return;
     const ext = filename.toLowerCase().split(".").pop();
     entity.setLocalEulerAngles(ext === "lcc2" ? 270 + pitch : pitch, yaw, (ext === "spz" ? 0 : 180) + roll);
-  }, [filename, pitch, yaw, roll, viewerReady]);
+    entity.setLocalPosition(x, y, z);
+    entity.setLocalScale(scale, scale, scale);
+  }, [filename, pitch, yaw, roll, x, y, z, scale, viewerReady]);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#070c11]">
