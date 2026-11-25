@@ -350,6 +350,14 @@ export default function PlayClient({ project }: { project: Project }) {
           </button>
           <button
             type="button"
+            aria-pressed={hud?.freeCamera ?? false}
+            onClick={() => engineRef.current?.toggleFreeCamera()}
+            className={`rounded-full border px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em] backdrop-blur transition ${hud?.freeCamera ? "border-[#c9f45b]/55 bg-[#c9f45b]/10 text-[#e6ffb0]" : "border-white/12 bg-black/45 text-white/55 hover:text-white"}`}
+          >
+            V · {hud?.freeCamera ? "free camera" : "fly camera"}
+          </button>
+          <button
+            type="button"
             onClick={() => engineRef.current?.scan()}
             className="rounded-full border border-white/12 bg-black/45 px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-white/55 backdrop-blur transition hover:text-white"
           >
@@ -363,15 +371,17 @@ export default function PlayClient({ project }: { project: Project }) {
             R · respawn
           </button>
         </div>
-        <div className="mx-auto mt-2 flex max-w-xl items-center justify-center gap-3 font-mono text-[9px] uppercase tracking-[0.16em] text-white/35">
-          <span>WASD move</span>
-          <span className="text-white/15">·</span>
-          <span>shift sprint</span>
-          <span className="text-white/15">·</span>
-          <span>space jump</span>
-          <span className="text-white/15">·</span>
-          <span>drag look</span>
-          <span className="text-white/15">·</span>
+        <div className="mx-auto mt-2 flex max-w-3xl flex-wrap items-center justify-center gap-x-3 gap-y-1 font-mono text-[9px] uppercase tracking-[0.16em] text-white/35">
+          {hud?.freeCamera ? (
+            <>
+              <span>drag orbit</span><span>right-drag pan</span><span>wheel zoom</span><span>shift-wheel pan</span>
+              <span>ctrl-wheel orbit</span><span>WASD / arrows fly</span><span>Q / E vertical</span><span>shift fast · ctrl slow</span>
+            </>
+          ) : (
+            <>
+              <span>WASD move</span><span>shift sprint</span><span>space jump</span><span>drag look</span><span>wheel zoom</span>
+            </>
+          )}
           <span>{hud?.status ?? status}</span>
         </div>
       </div>
