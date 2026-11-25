@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
+import "@playcanvas/supersplat-viewer/viewer.css";
 
 export const metadata: Metadata = {
   title: "Splatwalk — Gaussian splat simulation studio",
