@@ -169,7 +169,7 @@ export function defaultEnvironment(): EnvironmentConfig {
     url: null,
     filename: null,
     splatScale: 1,
-    splatQuality: "balanced",
+    splatQuality: "maximum",
     splatYaw: 0,
     splatPitch: 0,
     splatRoll: 0,

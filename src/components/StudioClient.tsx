@@ -390,9 +390,9 @@ export default function StudioClient({ project }: { project: Project }) {
                       <button
                         key={quality}
                         type="button"
-                        aria-pressed={(config.environment.splatQuality ?? "balanced") === quality}
+                        aria-pressed={(config.environment.splatQuality ?? "maximum") === quality}
                         onClick={() => updateEnv({ splatQuality: quality })}
-                        className={`rounded-lg border px-2 py-2 text-[11px] transition ${(config.environment.splatQuality ?? "balanced") === quality ? "border-[#c9f45b]/60 bg-[#c9f45b]/10 text-[#e6ffb0]" : "border-white/10 text-white/50 hover:border-white/25"}`}
+                        className={`rounded-lg border px-2 py-2 text-[11px] transition ${(config.environment.splatQuality ?? "maximum") === quality ? "border-[#c9f45b]/60 bg-[#c9f45b]/10 text-[#e6ffb0]" : "border-white/10 text-white/50 hover:border-white/25"}`}
                       >
                         {label}
                       </button>

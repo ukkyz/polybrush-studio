@@ -174,21 +174,49 @@ export class SimEngine {
     const { canvas, config, mode } = this.options;
     this.setStatus("booting");
 
-    const app = new pc.Application(canvas, {
-      graphicsDeviceOptions: { antialias: true, alpha: false, preserveDrawingBuffer: false },
-    });
+    // Prefer the WebGPU GPU-sort path used by SuperSplat; the default Application
+    // constructor creates WebGL, which sorts splats on the CPU and can miss the
+    // high-density path for large captures. Fall back cleanly on unsupported devices.
+    let app: pc.Application;
+    try {
+      const device = await pc.createGraphicsDevice(canvas, {
+        deviceTypes: [pc.DEVICETYPE_WEBGPU],
+        antialias: false,
+        alpha: false,
+        powerPreference: "high-performance",
+      });
+      if (this.disposed) {
+        device.destroy();
+        return;
+      }
+      app = new pc.Application(canvas, { graphicsDevice: device });
+    } catch (error) {
+      console.info("WebGPU unavailable; using the WebGL splat fallback", error);
+      app = new pc.Application(canvas, {
+        graphicsDeviceOptions: { antialias: true, alpha: false, preserveDrawingBuffer: false },
+      });
+    }
     this.app = app;
     app.setCanvasFillMode(pc.FILLMODE_NONE);
     // Higher profiles render at a denser device-pixel ratio and raise the streamed
     // splat LOD budget where the capture includes multiresolution data.
-    const quality = config.environment.splatQuality ?? "balanced";
+    const quality = config.environment.splatQuality ?? "maximum";
     const qualitySettings = {
       balanced: { pixelRatio: 1, splatBudget: 1_000_000 },
       high: { pixelRatio: 1.5, splatBudget: 2_000_000 },
-      maximum: { pixelRatio: 2, splatBudget: 0 },
+      maximum: { pixelRatio: 3, splatBudget: 0 },
     }[quality];
-    app.graphicsDevice.maxPixelRatio = qualitySettings.pixelRatio;
+    app.graphicsDevice.maxPixelRatio = app.graphicsDevice.isWebGPU
+      ? qualitySettings.pixelRatio
+      : Math.min(qualitySettings.pixelRatio, 1.5);
     app.scene.gsplat.splatBudget = qualitySettings.splatBudget;
+    // Match SuperSplat's permissive contribution cutoff. The engine defaults of
+    // minContribution=2 can omit subtle, small splats in dense scans.
+    app.scene.gsplat.minContribution = quality === "maximum" ? 0.5 : 1;
+    app.scene.gsplat.minPixelSize = quality === "maximum" ? 1 : 1.5;
+    app.scene.gsplat.alphaClip = 1 / 255;
+    app.scene.gsplat.radialSorting = true;
+    app.scene.gsplat.antiAlias = undefined; // honor the training mode recorded in the asset
     app.setCanvasResolution(pc.RESOLUTION_AUTO);
     this.resize();
     app.start();
@@ -561,7 +589,10 @@ export class SimEngine {
       );
       this.envRoot?.addChild(entity);
       if (!environment.showShell && this.shellGroup) this.shellGroup.enabled = false;
-      this.setStatus("splat", "Gaussian splat environment ready");
+      const renderer = this.app?.scene.gsplat.currentRenderer === pc.GSPLAT_RENDERER_RASTER_GPU_SORT
+        ? "WebGPU GPU-sort"
+        : "WebGL CPU-sort fallback";
+      this.setStatus("splat", `Gaussian splat ready · ${renderer} · ${environment.splatQuality ?? "maximum"} detail`);
       this.emit({ type: "splat_ready", payload: { source: environment.source } });
       this.emitHud(true);
     });
