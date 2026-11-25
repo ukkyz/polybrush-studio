@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import FloorplanEditor from "@/components/FloorplanEditor";
+import SuperSplatPreview from "@/components/SuperSplatPreview";
 import { TopBar } from "@/components/ui";
 import type { SimEventMessage, SimStatus } from "@/lib/sim/engine";
 import {
@@ -95,6 +96,7 @@ function SliderRow({
 export default function StudioClient({ project }: { project: Project }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("environment");
+  const [showSuperSplat, setShowSuperSplat] = useState(false);
   const [config, setConfig] = useState<ProjectConfig>({
     name: project.name,
     description: project.description,
@@ -734,25 +736,47 @@ export default function StudioClient({ project }: { project: Project }) {
                   {status}
                 </span>
               </div>
-              <div className="flex items-center gap-2 font-mono text-[10px] text-white/35">
+              <div className="flex items-center gap-2">
+                {config.environment.kind === "splat" && config.environment.source === "upload" && config.environment.url && (
+                  <button
+                    type="button"
+                    aria-pressed={showSuperSplat}
+                    onClick={() => setShowSuperSplat((value) => !value)}
+                    className={`rounded-full border px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.1em] transition ${showSuperSplat ? "border-[#c9f45b]/50 bg-[#c9f45b]/10 text-[#e6ffb0]" : "border-white/10 text-white/45 hover:border-white/25 hover:text-white/75"}`}
+                  >
+                    {showSuperSplat ? "Back to simulation preview" : "Inspect capture · SuperSplat"}
+                  </button>
+                )}
+                <div className="flex items-center gap-2 font-mono text-[10px] text-white/35">
                 <span>{config.avatar.name}</span>
                 <span>·</span>
                 <span>{config.avatar.poses.length + 2} poses</span>
                 <span>·</span>
                 <span>{config.floorplan.orbs.length} markers</span>
+                </div>
               </div>
             </div>
             <div className="relative h-[300px] overflow-hidden rounded-xl border border-white/8 bg-[#070c11] sm:h-[400px] lg:h-[440px]">
-              <SimCanvas
-                config={previewConfig}
-                mode="preview"
-                configKey={previewKey}
-                onStatus={(next, detail) => {
-                  setStatus(next);
-                  if (detail) setStatusDetail(detail);
-                }}
-                onEvent={onSimEvent}
-              />
+              {showSuperSplat && previewConfig.environment.kind === "splat" && previewConfig.environment.url ? (
+                <SuperSplatPreview
+                  url={previewConfig.environment.url}
+                  filename={previewConfig.environment.filename ?? "capture.sog"}
+                  pitch={previewConfig.environment.splatPitch ?? 0}
+                  yaw={previewConfig.environment.splatYaw ?? 0}
+                  roll={previewConfig.environment.splatRoll ?? 0}
+                />
+              ) : (
+                <SimCanvas
+                  config={previewConfig}
+                  mode="preview"
+                  configKey={previewKey}
+                  onStatus={(next, detail) => {
+                    setStatus(next);
+                    if (detail) setStatusDetail(detail);
+                  }}
+                  onEvent={onSimEvent}
+                />
+              )}
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,transparent_45%,rgba(4,7,10,0.55)_100%)]" />
               <div className="absolute bottom-2 left-2 flex gap-1.5">
                 {POSES.slice(0, 5).map((pose) => (
